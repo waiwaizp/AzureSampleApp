@@ -6,14 +6,45 @@
 trigger:
 - main
 
+variables:
+  TF_WORKING_DIR: infra
+
 pool:
   vmImage: ubuntu-latest
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+stages:
+- stage: Terraform
+  jobs:
+  - job: TerraformApply
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Install Terraform'
+      inputs:
+        azureSubscription: 'Your-Azure-Service-Connection-Name'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          wget https://releases.hashicorp.com/terraform/1.14.1/terraform_1.14.1_linux_amd64.zip
+          unzip terraform_1.14.1_linux_amd64.zip
+          sudo mv terraform /usr/local/bin/
+    - script: |
+        cd $(TF_WORKING_DIR)
+        terraform init -input=false -no-color
+        terraform plan -out=tfplan -input=false -no-color
+        terraform apply -input=false -auto-approve tfplan
+      env:
+        ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(ARM_TENANT_ID)
+      displayName: 'Terraform Init/Plan/Apply'
+    - script: |
+        cd $(TF_WORKING_DIR)
+        terraform output -json > tf_outputs.json
+        cat tf_outputs.json
+      displayName: 'Dump TF outputs'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
