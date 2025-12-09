@@ -22,7 +22,7 @@ stages:
     - task: AzureCLI@2
       displayName: 'Install Terraform'
       inputs:
-        azureSubscription: 'Your-Azure-Service-Connection-Name'
+        azureSubscription: 'azure-sp-connection1'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
