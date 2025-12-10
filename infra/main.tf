@@ -283,6 +283,10 @@ resource "azurerm_linux_virtual_machine" "backend_vms" {
   }
 
   custom_data = base64encode(file("${path.module}/cloud-init-backend.yaml"))
+  depends_on = [
+    azurerm_postgresql_flexible_server.pg-server,
+    azurerm_postgresql_flexible_server_database.pg-db
+  ]
 }
 
 resource "azurerm_network_interface" "backend_nics" {
