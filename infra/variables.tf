@@ -10,4 +10,4 @@ variable "backend_vm_count" { default = 2 }
 variable "postgres_username" { default = "pgadmin" }
 variable "postgres_password" { default = "Zhuhai123!@#" }
 
-variable "client_secret" { type = string }
+//variable "client_secret" { type = string }

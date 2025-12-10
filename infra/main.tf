@@ -224,6 +224,37 @@ resource "azurerm_linux_virtual_machine" "frontend_vm" {
   custom_data = file("${path.module}/cloud-init-frontend.yaml")
 }*/
 
+# PostgreSQL Flexible Server
+resource "azurerm_postgresql_flexible_server" "pg-server" {
+  name                   = "mzhang1-psqlflexibleserver"
+  resource_group_name    = azurerm_resource_group.rg.name
+  location               = azurerm_resource_group.rg.location
+  version                = "12"
+  administrator_login    = var.postgres_username
+  administrator_password = var.postgres_password
+  storage_mb             = 32768
+  sku_name               = "B_Standard_B1ms"
+  public_network_access_enabled = true
+}
+
+resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_all_azure" {
+  name      = "allow-all-azure"
+  server_id = azurerm_postgresql_flexible_server.pg-server.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
+}
+
+resource "azurerm_postgresql_flexible_server_database" "pg-db" {
+  name      = "${var.prefix}_db"
+  server_id = azurerm_postgresql_flexible_server.pg-server.id
+  collation = "en_US.utf8"
+  charset   = "UTF8"
+
+  lifecycle {
+    prevent_destroy = false
+  }
+}
+
 # backend VMs - use count
 resource "azurerm_linux_virtual_machine" "backend_vms" {
   count               = var.backend_vm_count
@@ -287,28 +318,4 @@ resource "azurerm_network_interface_backend_address_pool_association" "assoc" {
   network_interface_id    = each.value.id
   ip_configuration_name   = "internal"
   backend_address_pool_id = azurerm_lb_backend_address_pool.backend_pool.id
-}
-
-# PostgreSQL Flexible Server
-resource "azurerm_postgresql_flexible_server" "pg-server" {
-  name                   = "mzhang1-psqlflexibleserver"
-  resource_group_name    = azurerm_resource_group.rg.name
-  location               = azurerm_resource_group.rg.location
-  version                = "12"
-  administrator_login    = var.postgres_username
-  administrator_password = var.postgres_password
-  storage_mb             = 32768
-  sku_name               = "B_Standard_B1ms"
-}
-
-resource "azurerm_postgresql_flexible_server_database" "pg-db" {
-  name      = "${var.prefix}_db"
-  server_id = azurerm_postgresql_flexible_server.pg-server.id
-  collation = "en_US.utf8"
-  charset   = "UTF8"
-
-  # prevent the possibility of accidental data loss
-  lifecycle {
-    prevent_destroy = false
-  }
 }
