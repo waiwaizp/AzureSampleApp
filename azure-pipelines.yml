@@ -10,16 +10,17 @@ variables:
   TF_WORKING_DIR: infra
 
 pool:
-  vmImage: ubuntu-latest
+  name: Default
+  demands:
+    - agent.name -equals LAPTOP-AS0DH791
 
 stages:
 - stage: Terraform
   jobs:
   - job: TerraformApply
-    pool:
-      vmImage: 'ubuntu-latest'
     steps:
     - task: AzureCLI@2
+      enabled: false
       displayName: 'Install Terraform'
       inputs:
         azureSubscription: 'azure-sp-connection1'
