@@ -11,6 +11,8 @@ variables:
 
 pool:
   name: Default
+  demands:
+    - agent.name -equals LAPTOP-AS0DH791
 
 stages:
 - stage: Terraform
