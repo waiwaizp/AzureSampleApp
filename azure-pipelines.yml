@@ -10,8 +10,7 @@ variables:
   TF_WORKING_DIR: infra
 
 pool:
-  name: self-host-local-wsl
-  vmImage: ubuntu-latest
+  name: default
 
 stages:
 - stage: Terraform
