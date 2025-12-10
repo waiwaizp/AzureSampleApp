@@ -2,11 +2,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.engine import URL
 
-username = "mzhang1"
+username = "pgadmin"
 password = "Zhuhai123!@#" 
-host = "mzhangpost.postgres.database.azure.com"
+host = "mzhang1-psqlflexibleserver.postgres.database.azure.com"
 port = 5432
-database = "postgres"
+database = "myapp_db"
 
 db_url = URL.create(
     drivername="postgresql+psycopg2",

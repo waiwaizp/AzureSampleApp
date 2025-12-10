@@ -251,7 +251,7 @@ resource "azurerm_linux_virtual_machine" "backend_vms" {
     version   = "latest"
   }
 
-  custom_data = file("${path.module}/cloud-init-backend.yaml")
+  custom_data = base64encode(file("${path.module}/cloud-init-backend.yaml"))
 }
 
 resource "azurerm_network_interface" "backend_nics" {
