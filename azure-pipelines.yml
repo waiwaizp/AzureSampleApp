@@ -20,6 +20,7 @@ stages:
   - job: TerraformApply
     steps:
     - task: AzureCLI@2
+      enabled: false
       displayName: 'Install Terraform'
       inputs:
         azureSubscription: 'azure-sp-connection1'
