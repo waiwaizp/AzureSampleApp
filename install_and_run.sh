@@ -2,30 +2,39 @@
 
 set -e
 
+export DEBIAN_FRONTEND=noninteractive
+
 PROJECT_DIR=$(pwd)
 SERVICE_NAME="sampleapp"
 PY_VERSION="3.12"
 
 echo "==> Updating system..."
-sudo apt update
+sudo apt update -y
 
-echo "==> Installing Python ${PY_VERSION} and required tools..."
+echo "==> Installing Python ${PY_VERSION} and required tools (non-interactive)..."
 sudo apt install -y software-properties-common
+
 sudo add-apt-repository -y ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install -y python${PY_VERSION} python${PY_VERSION}-venv python3-pip
+
+sudo apt update -y
+
+sudo apt install -y \
+    python${PY_VERSION} \
+    python${PY_VERSION}-venv \
+    python3-pip \
+    -o Dpkg::Options::="--force-confdef" \
+    -o Dpkg::Options::="--force-confold"
 
 echo "==> Installing pipenv..."
 pip3 install --user pipenv
 
-# Ensure ~/.local/bin is in PATH
 export PATH="$HOME/.local/bin:$PATH"
 
 echo "==> Creating virtual environment using Pipfile..."
 pipenv --python ${PY_VERSION}
 
 echo "==> Installing project dependencies..."
-pipenv install
+pipenv install --deploy
 
 echo "==> Creating systemd service..."
 
