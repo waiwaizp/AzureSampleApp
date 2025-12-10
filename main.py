@@ -7,6 +7,7 @@ from database import Base, engine, SessionLocal
 from schemas import UserCreate, UserOut
 from crud import create_user, get_users
 import models
+import socket
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -14,7 +15,7 @@ app = FastAPI()
 @app.get("/")
 async def index():
     await asyncio.sleep(0.01)   # 模拟 I/O 耗时
-    return "VM1: ok"
+    return socket.gethostname() + ": ok"
 
 @app.get("/health")
 def health():

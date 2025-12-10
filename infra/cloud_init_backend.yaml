@@ -1,0 +1,27 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+
+write_files:
+  - path: /var/log/cloud-init-backend.log
+    permissions: "0644"
+    owner: root:root
+    content: |
+      Cloud-init backend setup started at $(date)
+
+runcmd:
+  - echo "=== Installing dependencies ===" | tee -a /var/log/cloud-init-backend.log
+  - apt-get update -y >> /var/log/cloud-init-backend.log 2>&1
+
+  - echo "=== Cloning backend repo ===" | tee -a /var/log/cloud-init-backend.log
+  - git clone https://github.com/waiwaizp/AzureSampleApp.git /opt/AzureSampleApp >> /var/log/cloud-init-backend.log 2>&1
+
+  - echo "=== Preparing script ===" | tee -a /var/log/cloud-init-backend.log
+  - cd /opt/AzureSampleApp
+  - chmod +x /opt/AzureSampleApp/install_and_run.sh
+
+  - echo "=== Running install_and_run.sh ===" | tee -a /var/log/cloud-init-backend.log
+  - /opt/AzureSampleApp/install_and_run.sh >> /var/log/cloud-init-backend.log 2>&1
