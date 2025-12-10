@@ -28,7 +28,7 @@ sudo apt install -y \
 echo "==> Installing pipenv..."
 pip3 install --user pipenv
 
-export PATH="$HOME/.local/bin:$PATH"
+PATH=$PATH:/root/.local/bin
 
 echo "==> Creating virtual environment using Pipfile..."
 pipenv --python ${PY_VERSION}
@@ -48,7 +48,7 @@ After=network.target
 [Service]
 User=${USER}
 WorkingDirectory=${PROJECT_DIR}
-Environment=PATH=${HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=$(pipenv --venv)/bin/python ${PROJECT_DIR}/main.py
 Restart=always
 
