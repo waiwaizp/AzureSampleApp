@@ -10,7 +10,7 @@ variables:
   TF_WORKING_DIR: infra
 
 pool:
-  name: default
+  name: Default
 
 stages:
 - stage: Terraform
