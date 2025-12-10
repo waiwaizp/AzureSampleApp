@@ -17,6 +17,31 @@ resource "azurerm_subnet" "subnet" {
   address_prefixes     = ["10.0.1.0/24"]
 }
 
+resource "azurerm_public_ip" "nat-gateway-pip" {
+  name                = "example-PIP"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+}
+
+resource "azurerm_nat_gateway" "nat-gateway" {
+  name                = "example-NatGateway"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku_name            = "Standard"
+}
+
+resource "azurerm_nat_gateway_public_ip_association" "example" {
+  nat_gateway_id       = azurerm_nat_gateway.nat-gateway.id
+  public_ip_address_id = azurerm_public_ip.nat-gateway-pip.id
+}
+
+resource "azurerm_subnet_nat_gateway_association" "example" {
+  subnet_id      = azurerm_subnet.subnet.id
+  nat_gateway_id = azurerm_nat_gateway.nat-gateway.id
+}
+
 resource "azurerm_network_security_group" "nsg" {
   name                = "${var.prefix}-nsg"
   location            = azurerm_resource_group.rg.location
@@ -44,11 +69,16 @@ resource "azurerm_network_security_rule" "allow_http" {
   access                      = "Allow"
   protocol                    = "Tcp"
   source_port_range           = "*"
-  destination_port_range      = "80"
+  destination_port_range      = "8000"
   source_address_prefix       = "*"
   destination_address_prefix  = "*"
   resource_group_name         = azurerm_resource_group.rg.name
   network_security_group_name = azurerm_network_security_group.nsg.name
+}
+
+resource "random_integer" "suffix" {
+  min = 10000
+  max = 99999
 }
 
 resource "azurerm_public_ip" "frontend_pip" {
@@ -57,6 +87,7 @@ resource "azurerm_public_ip" "frontend_pip" {
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
+  domain_name_label   = "${var.prefix}-frontend-${random_integer.suffix.result}"
 }
 
 # Load Balancer for backend
@@ -77,17 +108,10 @@ resource "azurerm_lb_backend_address_pool" "backend_pool" {
   loadbalancer_id     = azurerm_lb.backend_lb.id
 }
 
-/* resource "azurerm_lb_backend_address_pool_address" "example" {
-  name                    = "example"
-  backend_address_pool_id = data.azurerm_lb_backend_address_pool.example.id
-  virtual_network_id      = data.azurerm_virtual_network.example.id
-  ip_address              = "10.0.0.1"
-} */
-
 resource "azurerm_lb_probe" "health_probe" {
   name                = "health_probe"
   loadbalancer_id     = azurerm_lb.backend_lb.id
-  protocol            = "TCP"
+  protocol            = "Tcp"
   port                = 8000
   interval_in_seconds = 15
   number_of_probes    = 2
@@ -104,6 +128,18 @@ resource "azurerm_lb_rule" "http_rule" {
   probe_id                       = azurerm_lb_probe.health_probe.id
   idle_timeout_in_minutes        = 4
   tcp_reset_enabled           =  true    
+}
+
+resource "azurerm_lb_nat_rule" "example1" {
+  resource_group_name            = azurerm_resource_group.rg.name
+  loadbalancer_id                = azurerm_lb.backend_lb.id
+  name                           = "ssh"
+  protocol                       = "Tcp"
+  frontend_port_start            = 3000
+  frontend_port_end              = 3389
+  backend_port                   = 22
+  backend_address_pool_id        = azurerm_lb_backend_address_pool.backend_pool.id
+  frontend_ip_configuration_name = "LoadBalancerFrontEnd"
 }
 
 /*resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
@@ -196,11 +232,8 @@ resource "azurerm_linux_virtual_machine" "backend_vms" {
   location            = azurerm_resource_group.rg.location
   size                = var.vm_size
   admin_username      = var.admin_username
-
-  admin_ssh_key {
-    username   = var.admin_username
-    public_key = var.ssh_public_key
-  }
+  admin_password      = var.admin_password
+  disable_password_authentication = false
 
   network_interface_ids = [
     azurerm_network_interface.backend_nics[count.index].id
@@ -213,12 +246,12 @@ resource "azurerm_linux_virtual_machine" "backend_vms" {
 
   source_image_reference {
     publisher = "Canonical"
-    offer     = "UbuntuServer"
+    offer     = "0001-com-ubuntu-server-jammy"
     sku       = "22_04-lts"
     version   = "latest"
   }
 
-  custom_data = file("${path.module}/cloud-init-backend.yaml")
+  //custom_data = file("${path.module}/cloud-init-backend.yaml")
 }
 
 resource "azurerm_network_interface" "backend_nics" {
@@ -234,34 +267,48 @@ resource "azurerm_network_interface" "backend_nics" {
   }
 }
 
+resource "azurerm_network_interface_security_group_association" "backend_nics_nsg_assn" {
+  for_each = {
+    for idx, nic in azurerm_network_interface.backend_nics :
+    idx => nic
+  }
+
+  network_interface_id      = each.value.id
+  network_security_group_id = azurerm_network_security_group.nsg.id
+}
+
 # Associate backend NICs to LB backend pool
 resource "azurerm_network_interface_backend_address_pool_association" "assoc" {
-  count                     = var.backend_vm_count
-  network_interface_id      = azurerm_network_interface.backend_nics[count.index].id
-  ip_configuration_name     = "internal"
-  backend_address_pool_id   = azurerm_lb_backend_address_pool.backend_pool.id
+  for_each = {
+    for idx, nic in azurerm_network_interface.backend_nics :
+    idx => nic
+  }
+
+  network_interface_id    = each.value.id
+  ip_configuration_name   = "internal"
+  backend_address_pool_id = azurerm_lb_backend_address_pool.backend_pool.id
 }
 
 # PostgreSQL Flexible Server
-resource "azurerm_postgresql_flexible_server" "example" {
-  name                   = "example-psqlflexibleserver"
+resource "azurerm_postgresql_flexible_server" "pg-server" {
+  name                   = "mzhang1-psqlflexibleserver"
   resource_group_name    = azurerm_resource_group.rg.name
   location               = azurerm_resource_group.rg.location
   version                = "12"
-  administrator_login    = "psqladmin"
-  administrator_password = "H@Sh1CoR3!"
+  administrator_login    = var.postgres_username
+  administrator_password = var.postgres_password
   storage_mb             = 32768
-  sku_name               = "GP_Standard_D4s_v3"
+  sku_name               = "B_Standard_B1ms"
 }
 
-resource "azurerm_postgresql_flexible_server_database" "example" {
-  name      = "exampledb"
-  server_id = azurerm_postgresql_flexible_server.example.id
+resource "azurerm_postgresql_flexible_server_database" "pg-db" {
+  name      = "${var.prefix}_db"
+  server_id = azurerm_postgresql_flexible_server.pg-server.id
   collation = "en_US.utf8"
   charset   = "UTF8"
 
   # prevent the possibility of accidental data loss
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
